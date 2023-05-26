@@ -12,13 +12,23 @@ from std_msgs.msg import Bool
 bridge = CvBridge()
 
 
-def is_color_within_range(color, color_range):
+def is_color_within_range(color, color_range:  list) -> bool:
     hsv_color = cv2.cvtColor(np.uint8([[color]]), cv2.COLOR_BGR2HSV)[0][0]
     return hsv_color[0] >= color_range[0][0] and hsv_color[1] >= color_range[0][1] and hsv_color[2] >= color_range[0][2] and hsv_color[0] <= color_range[1][0] and hsv_color[1] <= color_range[1][1] and hsv_color[2] <= color_range[1][2]
 
 
-# get the image from the camera and convert it to a cv image, and process it
+def process_keypoints(keypoints: list, color_range: list, cv_image: np.ndarray) -> bool:
+    for keypoint in keypoints:
+        x, y = int(keypoint.pt[0]), int(keypoint.pt[1])
+        w, h = int(keypoint.size), int(keypoint.size)
+        roi = cv_image[y-h//2:y+h//2, x-w//2:x+w//2]
+        avg_color = np.mean(roi, axis=(0, 1))
+        if is_color_within_range(avg_color, color_range):
+            return True
+    return False
 
+
+# get the image from the camera and convert it to a cv image, and process it
 def process_image(frame):
 
     cv_image = bridge.imgmsg_to_cv2(frame, 'bgr8')
@@ -26,9 +36,10 @@ def process_image(frame):
     # convert to hsv
     hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
-    lower_green = np.array([30, 51, 51])  # 82, 59, 48
-    upper_green = np.array([99, 255, 255])  # 99, 230, 255
-    lower_red = np.array([144, 35, 20])  # 144, 35, 109
+    # define color ranges for green and red
+    lower_green = np.array([30, 51, 51])
+    upper_green = np.array([99, 255, 255])
+    lower_red = np.array([144, 35, 20])
     upper_red = np.array([179, 255, 255])
 
     # create masks for green and red
@@ -63,27 +74,14 @@ def process_image(frame):
         []), (0, 255, 0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
     # define color ranges for traffic lights
-    red_color_range = [(144, 35, 109), (179, 255, 255)]
-    green_color_range = [(30, 51, 51), (99, 255, 255)]
+    red_color_range = [lower_red, upper_red]
+    green_color_range = [lower_green, upper_green]
 
     # process blobs to detect traffic lights
-    red_detected = False
-    green_detected = False
-    for keypoint in red_keypoints:
-        x, y = int(keypoint.pt[0]), int(keypoint.pt[1])
-        w, h = int(keypoint.size), int(keypoint.size)
-        roi = cv_image[y-h//2:y+h//2, x-w//2:x+w//2]
-        avg_color = np.mean(roi, axis=(0, 1))
-        if is_color_within_range(avg_color, red_color_range):
-            red_detected = True
-
-    for keypoint in green_keypoints:
-        x, y = int(keypoint.pt[0]), int(keypoint.pt[1])
-        w, h = int(keypoint.size), int(keypoint.size)
-        roi = cv_image[y-h//2:y+h//2, x-w//2:x+w//2]
-        avg_color = np.mean(roi, axis=(0, 1))
-        if is_color_within_range(avg_color, green_color_range):
-            green_detected = True
+    red_detected = process_keypoints(
+        red_keypoints, red_color_range, cv_image) if red_keypoints else False
+    green_detected = process_keypoints(
+        green_keypoints, green_color_range, cv_image) if green_keypoints else False
 
     # publish the results
     if red_detected and not green_detected:
@@ -93,7 +91,7 @@ def process_image(frame):
     else:
         traffic_light_pub.publish(1)
 
-    # display the results
+    # show the image
     cv2.imshow('traffic_light_detector', blob)
 
 

@@ -24,15 +24,6 @@ def process_image(frame):
     # blur the image
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # # create a mask to only look at the bottom of the image
-    # mask = np.zeros_like(blur)
-    # height, width = blur.shape
-    # mask[9*height//10:height, width//10:9*width//10] = 255
-    # # triangle = np.array(
-    # #     [[(0, height), (width, height), (width//2, 3*height//4)]])
-    # # cv2.fillPoly(mask, triangle, 255)
-    # masked_image = cv2.bitwise_and(blur, mask)
-
     # binary inverse the image
     _, thresh = cv2.threshold(
         blur, 127, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -81,15 +72,3 @@ if __name__ == '__main__':
         '/video_source/raw', Image, queue_size=1)
 
     rospy.spin()
-
-
-# rospy.init_node('line_follower', anonymous=True)
-
-# # setup publishers and subscribers
-# # send the line position to next node
-# line_pub = rospy.Publisher('/line_position', Int32, queue_size=10)
-
-# image_sub = rospy.Subscriber(
-#     '/video_source/raw', Image, queue_size=1, callback=process_image)
-
-# rospy.spin()
